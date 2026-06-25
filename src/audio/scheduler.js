@@ -50,20 +50,36 @@ export class Scheduler {
     if (this.midi) this.midi.allOff();
   }
 
-  /** state変更時に scanner/canon/scale/rhythm を作り直す */
+  /**
+   * state変更時の更新。**非破壊的**: scanner/canon の走査位置を保ったまま
+   * パラメータだけ差し替える（再生中にスライダーを動かしても凍結しない）。
+   */
   rebuild() {
     const s = this.state;
     this.scaleHz = buildScaleHz(s.scaleKey, s.root, s.octaves);
-    this.scanners = buildScanners(s.scanners);
     const spb = 60 / s.tempo;
-    this._rhythms = this.scanners.map(() => makeRhythm(s.rhythmKey, spb));
-    this.canon = new CanonReader(s.canon);
-    this._canonRhythm = makeRhythm(s.rhythmKey, spb);
-    // 既存スケジュールはそのまま継続（位相維持）
-    if (this._nextTimes.length !== this.scanners.length) {
+
+    // scanners: 個数一致なら in-place 更新（pos維持）、不一致のみ再構築
+    if (this.scanners.length === s.scanners.length) {
+      s.scanners.forEach((c, i) => this.scanners[i].update(c));
+    } else {
+      this.scanners = buildScanners(s.scanners);
       const now = this.engine.ctx ? this.engine.ctx.currentTime : 0;
       this._nextTimes = this.scanners.map(() => now + 0.05);
     }
+
+    // rhythms: key/tempo が変わった時だけ作り直す（groove位相を維持）
+    const sig = s.rhythmKey + '@' + s.tempo;
+    if (sig !== this._rhythmSig || this._rhythms.length !== this.scanners.length) {
+      this._rhythmSig = sig;
+      this._rhythms = this.scanners.map(() => makeRhythm(s.rhythmKey, spb));
+      this._canonRhythm = makeRhythm(s.rhythmKey, spb);
+    }
+
+    // canon: pos維持で設定だけ更新
+    if (!this.canon) this.canon = new CanonReader(s.canon);
+    else this.canon.update(s.canon);
+    if (!this._canonRhythm) this._canonRhythm = makeRhythm(s.rhythmKey, spb);
   }
 
   _tick() {
@@ -120,7 +136,13 @@ export class Scheduler {
     let dest = this.engine.dest(layer);
     if (panner) { panner.pan.value = note.pan; panner.connect(dest); dest = panner; }
 
-    playVoice(ctx, dest, { ...note, hz }, cfg, when);
+    const decay = playVoice(ctx, dest, { ...note, hz }, cfg, when) || 2;
+
+    // ノードリーク防止: 減衰後に panner を切り離してサブグラフをGC可能に
+    if (panner) {
+      const lifeMs = Math.min(30000, (when - ctx.currentTime + decay + 0.6) * 1000);
+      setTimeout(() => { try { panner.disconnect(); } catch (e) {} }, Math.max(50, lifeMs));
+    }
 
     // MIDI
     if (this.midi && this.midi.enabled) {

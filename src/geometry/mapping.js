@@ -45,13 +45,15 @@ export function mapSegment(seg, state, scaleHz) {
   // プロシージャル紗綾形はアーム長が均一なので、卍の構造（depth/arm）も併用して
   // 3層を確実に分配する（内側アーム＝主鳴体、外側＝旋律/装飾）。
   let layer;
-  if (seg.depth === 1) {
-    // 折れた先（外側）: 偶アーム→MID旋律、奇アーム→MICRO装飾
+  if (seg.depth >= 2) {
+    // hook（最外・隣へ食い込む）: 偶アーム→MID旋律、奇アーム→MICRO装飾
     layer = (seg.arm % 2 === 0) ? 'mid' : 'micro';
+  } else if (seg.depth === 1) {
+    layer = 'mid'; // flag（旋律主声部）
+  } else if (seg.depth === 0) {
+    layer = 'macro'; // spoke（主鳴体）
   } else if (f.length > 0.6) {
     layer = 'macro';
-  } else if (f.length > 0.3) {
-    layer = 'mid';
   } else {
     layer = 'micro';
   }

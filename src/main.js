@@ -48,7 +48,8 @@ function applyGeometry({ segments, width, height }) {
   state._segments = segments;
   state._chains = chains;
   view.setGeometry(segments, { width, height });
-  if (scheduler) scheduler.rebuild();
+  // scheduler は毎tick state._chains をライブ参照するので rebuild 不要。
+  // （geometry変更で音のクロックをリセットしない＝再生中の凍結を防ぐ）
 }
 
 // ── transport ───────────────────────────────────

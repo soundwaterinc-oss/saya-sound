@@ -31,6 +31,13 @@ export class Scanner {
     return segments[segIdx];
   }
 
+  /** 位置を保ったまま rate/dir/enabled を更新（再生中の凍結を防ぐ） */
+  update(cfg) {
+    this.rate = cfg.rate;
+    this.dir = cfg.dir;
+    this.enabled = cfg.enabled;
+  }
+
   reset() { this.pos = 0; }
 }
 

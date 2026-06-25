@@ -15,10 +15,10 @@ export const state = {
   geo: {
     source: 'procedural', // 'procedural' | 'image'
     gridSize: 48, // px, 卍の密度
-    cols: 10,
-    rows: 7,
-    handedness: 'checker', // '卍' | '逆' | 'checker'
-    armLen: 0.5, // ×s
+    cols: 12,
+    rows: 9,
+    handedness: '卍', // '卍'(一様) | '逆'(一様反転) | 'checker'(市松)
+    armLen: 0.66, // hook の伸び（隣セルへの噛み合い量）×s
     jitter: 1.5, // px
     strokeW: 2.5,
     // 画像フォールバック
